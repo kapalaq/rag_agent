@@ -1,0 +1,12 @@
+pydantic-settings~=2.6.1
+pydantic~=2.11.7
+langchain~=0.3.26
+pydantic_core~=2.33.2
+python-dotenv~=1.1.1
+langchain-core~=0.3.68
+typing_extensions~=4.14.1
+langchain-anthropic~=0.3.17
+langgraph~=0.5.2
+pillow~=11.3.0
+llama-index-core~=0.12.48
+langchain-community~=0.3.27
