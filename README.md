@@ -26,17 +26,26 @@ This project is a **Retrieval-Augmented Generation (RAG) Agent** built with:
 
 ## 🗂️ Project Structure
 ```.
-├── app/
-│   ├── agent.py            # Main Agent class: query processing & orchestration
+├── app/        # Main Agent module: query processing & orchestration
+│   ├── utils/
+│   │   ├── document_processor.py   # Read/chunk documents tool
+│   │   ├── summary_manager.py      # Summary generating tool
+│   │   ├── query_analyzer.py       # Query analysis and breakdown tool
+│   │   └── logging_config.py       # Logging setup
 │   ├── store/
-│   │   ├── vector_store.py # FAISS-based vector store logic using LangChain
-│   │   └── embedder.py     # HuggingFace embedding setup
+│   │   └── vector_store.py     # FAISS-based vector store logic using LangChain
 │   ├── graph/
 │   │   └── workflow.py     # LangGraph setup with conditional edges
 │   └── core/
-│       └── config.py       # API keys, settings, and constants
+│       ├── config.py       # Pydantic config facade
+│       ├── state.py        # Graph variables/states
+│       ├── agent.py        # Agent class
+│       └── settings/
+│               ├── .env.template   # .env template
+│               └── .env    # API keys, settings, and constants
+│
 ├── documents/              # Source documents to embed
-├── main.py                 # Example runner script
+├── test.py                 # Example runner script
 ├── requirements.txt
 └── README.md
 ```
