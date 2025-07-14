@@ -22,14 +22,11 @@ class VectorStoreManager:
     ):
         self.persist_path = os.path.join(config.vector_store_path, persist_path)
         self.embedding = HuggingFaceEmbeddings(
-            model_name=config.embedding_model
+            model_name=config.embedding_model.get_secret_value()
         )
         self.vectorstore: Optional[FAISS] = None
 
-        if os.path.exists(config.vector_store_path):
-            self.load()
-        else:
-            self.vectorstore = None  # will initialize on create/add
+        self.vectorstore = None  # will initialize on create/add
 
     def exist(self):
         """Is vector store exist"""
@@ -39,7 +36,7 @@ class VectorStoreManager:
         """Create and save a new FAISS index."""
         self.vectorstore = FAISS.from_documents(documents, embedding=self.embedding)
         self.vectorstore.save_local(self.persist_path)
-        logger.info(f"✅ Index created and saved at '{self.persist_path}'.")
+        logger.info(f"Index created and saved at '{self.persist_path}'.")
 
     def add(self, documents: List[Document]):
         """Add documents to an existing index."""
@@ -53,24 +50,29 @@ class VectorStoreManager:
         self.vectorstore.add_documents(documents)
         self.vectorstore.save_local(self.persist_path)
 
-        logger.info("➕ Documents added and index updated.")
+        logger.info("Documents added and index updated.")
 
     def delete(self):
         """Delete the FAISS index directory."""
         if os.path.exists(self.persist_path):
             shutil.rmtree(self.persist_path)
             self.vectorstore = None
-            logger.info(f"🗑️ Index at '{self.persist_path}' deleted.")
+            logger.info(f"Index at '{self.persist_path}' deleted.")
         else:
-            logger.info("⚠️ No index to delete.")
+            logger.info("No index to delete.")
 
     def load(self):
         """Load FAISS index from disk."""
-        self.vectorstore = FAISS.load_local(self.persist_path, embeddings=self.embedding)
-        logger.info(f"📦 Loaded index from '{self.persist_path}'.")
+        self.vectorstore = FAISS.load_local(
+            self.persist_path,
+            embeddings=self.embedding,
+            allow_dangerous_deserialization=True
+        )
+        logger.info(f"Loaded index from '{self.persist_path}'.")
 
     def retrieve(self, query: str, k: int = 3) -> List[Document]:
         """Perform similarity search on the index."""
         if self.vectorstore is None:
-            raise ValueError("❌ No FAISS index loaded.")
+            logger.error("No FAISS index loaded.")
+            raise ValueError("No FAISS index loaded.")
         return self.vectorstore.similarity_search(query, k=k)

@@ -1,7 +1,7 @@
 """Document processing utilities."""
-
+import logging
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
@@ -11,6 +11,7 @@ from langchain_community.document_loaders import (
     UnstructuredWordDocumentLoader
 )
 
+logger = logging.getLogger(__name__)
 
 class DocumentProcessor:
     """handle document processing and chunking"""

@@ -2,8 +2,9 @@
 
 import hashlib
 import json
+import logging
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any
 
 from langchain_anthropic import ChatAnthropic
 from langchain.schema import Document
@@ -11,6 +12,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 from app.core.config import RAGConfig
 
+logger = logging.getLogger(__name__)
 
 class SummaryManager:
     """Manages document summaries with caching"""
@@ -26,8 +28,8 @@ class SummaryManager:
             chunk_overlap=config.chunk_overlap
         )
         self.llm = ChatAnthropic(
-            api_key=config.anthropic_api_key,
-            model=config.model_name,
+            api_key=config.anthropic_api_key.get_secret_value(),
+            model=config.llm_model.get_secret_value(),
             temperature=config.llm_temperature
         )
 
@@ -83,7 +85,7 @@ class SummaryManager:
             Document metadata: {docx.metadata}
 
             Document content:
-            {docx.content}
+            {docx.page_content}
 
             Summary:"""
 
