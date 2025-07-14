@@ -20,8 +20,6 @@ async def main():
 
     result = await agent.query(question, documents)
 
-    agent.store_messages(question, result["answer"])
-
     print(f"\n{'=' * 80}")
     print(f"Question: {result['question']}")
     print(f"Answer: {result['answer']}")

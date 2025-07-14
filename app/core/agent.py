@@ -171,6 +171,8 @@ class RAGAgent:
         # Run the graph
         result = await self.graph.ainvoke(initial_state)
 
+        self.store_messages(question, result["answer"])
+
         return {
             "question": question,
             "answer": result["final_answer"],
