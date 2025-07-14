@@ -108,6 +108,7 @@ For example:
 - Support documents filtering by masks
 - Better evaluation technique (fuzzy match)
 - Workflow nuances (retries, loops, web_search)
+- Add automatization on docker
 
 ---
 

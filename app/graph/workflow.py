@@ -211,6 +211,7 @@ async def _retrieve_chunks_node(state: AgentState, agent) -> Dict[str, Any]:
 
 
 async def _retrieve_web_node(state: AgentState, agent) -> Dict[str, Any]:
+    """Retrieve sources using web search (Tavily)."""
     top_docs = agent.retrieve_web(state["search_queries"])
     retrieved_docs = state.get("retrieved_docs", [])
     retrieved_docs.extend(top_docs)

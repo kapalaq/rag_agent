@@ -1,4 +1,5 @@
 """Document processing utilities."""
+
 import logging
 from pathlib import Path
 from typing import List
