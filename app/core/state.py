@@ -13,6 +13,7 @@ from langchain.schema import Document
 class AgentState(TypedDict):
     """State for the RAG agent graph"""
     question: str
+    final_answer: str
     search_queries: List[str]
     documents_path: str
     success: bool
@@ -20,3 +21,7 @@ class AgentState(TypedDict):
     additional_info: Dict[str, Any]
     sources: List[str]
     retries: int
+    validation: str
+    retrieval_depth: int
+    confidence_score: float
+    needs_refinement: bool

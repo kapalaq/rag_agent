@@ -18,5 +18,6 @@ __all__ = [
     "VectorStoreManager",
     "QueryAnalyzer",
     "SummaryManager",
-    "DocumentProcessor"
+    "DocumentProcessor",
+    "setup_logging"
 ]

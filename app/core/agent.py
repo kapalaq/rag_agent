@@ -1,4 +1,5 @@
 """Main RAG Agent implementation."""
+
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import logging
@@ -143,11 +144,16 @@ class RAGAgent:
 
         return top_docs
 
-    def get_max_retries_depth(self) -> int:
+    def get_max_retries(self) -> int:
         """Get the max retries."""
         return self.config.max_retries
 
+    def get_max_retrieval_depth(self) -> int:
+        """Get the max retrieval depth."""
+        return self.config.max_retrieval_depth
+
     def store_messages(self, question: str, answer: str) -> None:
+        """Store messages in memory of the agent for chat history."""
         # Store in memory
         self.memory.chat_memory.add_user_message(question)
         self.memory.chat_memory.add_ai_message(answer)
@@ -165,7 +171,14 @@ class RAGAgent:
         # Run the graph
         result = await self.graph.ainvoke(initial_state)
 
-        return result
+        return {
+            "question": question,
+            "answer": result["final_answer"],
+            "sources": result["sources"],
+            "search_queries": result["search_queries"],
+            "confidence_score": result["confidence_score"],
+            "num_retrieved_docs": len(result["retrieved_docs"])
+        }
 
 
 if __name__ == "__main__":

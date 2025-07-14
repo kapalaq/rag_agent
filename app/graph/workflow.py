@@ -58,7 +58,7 @@ def create_workflow(agent) -> CompiledStateGraph:
         {
             "Done": "chunk_retrieve",
             "Repeat": "summary_retrieve",
-            "Failed": "generate",
+            "Failed": "web_retrieve",
         }
     )
     workflow.add_conditional_edges(
@@ -66,8 +66,8 @@ def create_workflow(agent) -> CompiledStateGraph:
         lambda state: _check_retrieve(state, agent),
         {
             "Done": "generate",
-            "Repeat": "summary_retrieve",
-            "Failed": "generate"
+            "Repeat": "chunk_retrieve",
+            "Failed": "web_retrieve"
         }
     )
     workflow.add_conditional_edges(
@@ -79,8 +79,6 @@ def create_workflow(agent) -> CompiledStateGraph:
             "Failed": END
         }
     )
-    workflow.add_edge("generate", END)
-    """
     workflow.add_edge("generate", "validate")
     workflow.add_conditional_edges(
         "validate",
@@ -94,11 +92,18 @@ def create_workflow(agent) -> CompiledStateGraph:
         "evaluate",
         lambda state: _should_refine(state),
         {
-            True: END,
-            False: "retrieve"
+            "end": END,
+            "refine": "refine"
         }
     )
-    """
+    workflow.add_conditional_edges(
+        "refine",
+        lambda state: _should_retry(state, agent),
+        {
+            "retry": "summary_retrieve",
+            "end": END
+        }
+    )
 
     return workflow.compile()
 
@@ -148,7 +153,8 @@ async def _retrieve_summary_node(state: AgentState, agent) -> Dict[str, Any]:
     top_docs = agent.retrieve_summary(state["search_queries"])
 
     retries = state.get("retries", 0)
-    retries = retries if retries < 3 else 0
+    max_retries = agent.get_max_retries()
+    retries = retries if retries < max_retries else 0
 
     # Extract context information
     context = [
@@ -182,7 +188,8 @@ async def _retrieve_chunks_node(state: AgentState, agent) -> Dict[str, Any]:
     top_docs = agent.retrieve_chunks(state["search_queries"], state["sources"])
 
     retries = state.get("retries", 0)
-    retries = retries if retries < 3 else 0
+    max_retries = agent.get_max_retries()
+    retries = retries if retries < max_retries else 0
 
     # Extract context information
     context = [
@@ -209,7 +216,8 @@ async def _retrieve_web_node(state: AgentState, agent) -> Dict[str, Any]:
     retrieved_docs.extend(top_docs)
 
     retries = state.get("retries", 0)
-    retries = retries if retries < 3 else 0
+    max_retries = agent.get_max_retries()
+    retries = retries if retries < max_retries else 0
 
     logger.info("Web pages has be scraped.")
 
@@ -224,12 +232,19 @@ async def _generate_node(state: AgentState, agent) -> Dict[str, Any]:
     """Generate answer using LangChain with retrieved context"""
     question = state["question"]
     context_docs = state["retrieved_docs"]
+    validation = state.get("validation", "")
+
+    retries = state.get("retries", 0)
+    max_retries = agent.get_max_retries()
+    retries = retries if retries < max_retries else 0
 
     # Format context
     context_text = "\n\n".join([
         f"Document {i + 1}:\n{doc.page_content}"
         for i, doc in enumerate(context_docs)
     ])
+    if len(validation) > 0:
+        context_text += ("\n\n" + validation)
 
     # Create prompt template
     prompt = ChatPromptTemplate.from_template("""
@@ -244,9 +259,9 @@ async def _generate_node(state: AgentState, agent) -> Dict[str, Any]:
 
     Context:
     {context}
-
+    
     Question: {question}
-
+    
     Answer:
     """)
 
@@ -257,25 +272,68 @@ async def _generate_node(state: AgentState, agent) -> Dict[str, Any]:
         "question": question
     })
 
+    # Simple confidence scoring based on context relevance
+    confidence = min(len(context_docs) / agent.config.top_k_retrieval, 1.0)
+
     logger.info(f"Answer has been created.")
 
     return {
-        **state,
-        "final_answer": answer
+        "final_answer": answer,
+        "confidence_score": confidence,
+        "retries": retries + 1
     }
 
 
 async def _validate_node(state: AgentState, agent) -> Dict[str, Any]:
-    return {}
+    """Check answer on hallucinations."""
+    question = state["question"]
+    context_docs = state["retrieved_docs"]
+    answer = state["final_answer"]
+
+    # Format context
+    context_text = "\n\n".join([
+        f"Document {i + 1}:\n{doc.page_content}"
+        for i, doc in enumerate(context_docs)
+    ])
+
+    # Create prompt template
+    prompt = ChatPromptTemplate.from_template("""
+    The original question was: "{question}"
+    
+    The context was: "{context}"
+    
+    The current answer is: "{answer}"
+
+    Examine answer on hallucinations: make sure each statement has a direct source from the provided documents.
+    
+    Return every mistake or hallucination, one per line.
+    As a first line write either 'n', if there is no hallucination, or 'y', if there are hallucinations.
+    """)
+
+    # Generate answer
+    chain = prompt | agent.llm | StrOutputParser()
+    answer = await chain.ainvoke({
+        "question": question,
+        "context": context_text,
+        "answer": answer
+    })
+
+    logger.info(f"Validation has been done.")
+
+    return {
+        "validation": answer,
+        "success": answer[0] == 'n' or state["retries"] == 2
+    }
 
 
 async def _evaluate_node(state: AgentState, agent) -> Dict[str, Any]:
     """Evaluate if the answer needs refinement"""
-    answer = state["answer"]
+    answer = state["final_answer"]
     confidence = state.get("confidence_score", 0.0)
     retrieval_depth = state.get("retrieval_depth", 0)
 
     # Determine if refinement is needed
+    # Should add fuzzy match instead or any other algorithm
     needs_refinement = (
             confidence < 0.7 and
             retrieval_depth < agent.config.max_retrieval_depth - 1 and
@@ -287,6 +345,8 @@ async def _evaluate_node(state: AgentState, agent) -> Dict[str, Any]:
             ])
     )
 
+    logger.info("Evaluation has been done.")
+
     return {
         "needs_refinement": needs_refinement,
         "retrieval_depth": retrieval_depth + 1
@@ -296,7 +356,7 @@ async def _evaluate_node(state: AgentState, agent) -> Dict[str, Any]:
 async def _refine_node(state: AgentState, agent) -> Dict[str, Any]:
     """Refine the query for better retrieval"""
     question = state["question"]
-    answer = state["answer"]
+    answer = state["final_answer"]
 
     # Generate refined query based on the gaps in current answer
     prompt = ChatPromptTemplate.from_template("""
@@ -318,14 +378,17 @@ async def _refine_node(state: AgentState, agent) -> Dict[str, Any]:
 
     refined_queries = [q.strip() for q in refined_queries_text.split('\n') if q.strip()]
 
+    logger.info("Refinement has been done.")
+
     return {
         "search_queries": refined_queries[:2]  # Limit to 2 refined queries
     }
 
 
 def _check_retrieve(state: AgentState, agent) -> str:
+    """Check whether retrieve was successful"""
     docs = state.get("retrieved_docs", [])
-    max_retries = agent.get_max_retries_depth()
+    max_retries = agent.get_max_retries()
     retries = state.get("retries", max_retries)
 
     if len(docs) > 0:
@@ -338,6 +401,13 @@ def _check_retrieve(state: AgentState, agent) -> str:
 
 def _should_refine(state: AgentState) -> str:
     """Determine if refinement is needed"""
-    evalutaion_results = state.get("success", False)
-    refinements_done = state.get("refinements_done", 0)
-    return "refine" if evalutaion_results and refinements_done < 2 else "end"
+    needs_refinement = state.get("needs_refinement", False)
+    return "refine" if needs_refinement else "end"
+
+
+def _should_retry(state: AgentState, agent) -> str:
+    """Determine if another loop is needed"""
+    search_queries = state["search_queries"]
+    retrieval_depth = state["retrieval_depth"]
+
+    return "retry" if len(search_queries) > 0 and retrieval_depth < agent.get_max_retrieval_depth() else "end"
