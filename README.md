@@ -117,6 +117,7 @@ For example:
 - Better evaluation technique (fuzzy match)
 - Workflow nuances (retries, loops, web_search)
 - Add automatization on docker
+- Prompt Injection security
 
 ---
 
