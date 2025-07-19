@@ -10,7 +10,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 
-from app.core.config import RAGConfig
+from agent.core.config import RAGConfig
 
 logger = logging.getLogger(__name__)
 

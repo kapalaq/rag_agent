@@ -10,12 +10,12 @@ from langchain.memory import ConversationBufferMemory
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.documents import Document
 
-from app.core.config import RAGConfig
-from app.graph.workflow import create_workflow
-from app.utils.summary_manager import SummaryManager
-from app.utils.document_processor import DocumentProcessor
-from app.store.vector_store import VectorStoreManager
-from app.utils.query_analyzer import QueryAnalyzer
+from agent.core.config import RAGConfig
+from agent.graph.workflow import create_workflow
+from agent.utils.summary_manager import SummaryManager
+from agent.utils.document_processor import DocumentProcessor
+from agent.store.vector_store import VectorStoreManager
+from agent.utils.query_analyzer import QueryAnalyzer
 
 
 logger = logging.getLogger(__name__)

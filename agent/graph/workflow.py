@@ -8,7 +8,7 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.schema.output_parser import StrOutputParser
 from langgraph.graph.state import CompiledStateGraph
 
-from app.core.state import AgentState
+from agent.core.state import AgentState
 
 
 logger = logging.getLogger(__name__)

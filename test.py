@@ -2,8 +2,8 @@
 
 import asyncio
 
-from app import RAGAgent
-from app import setup_logging
+from agent import RAGAgent
+from agent import setup_logging
 
 
 async def main():

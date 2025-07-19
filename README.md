@@ -25,8 +25,8 @@ This project is a **Retrieval-Augmented Generation (RAG) Agent** built with:
 ---
 
 ## 🗂️ Project Structure
-```.
-├── app/        # Main Agent module: query processing & orchestration
+```graphql
+├── app/            # Main Agent module: query processing & orchestration
 │   ├── utils/
 │   │   ├── document_processor.py   # Read/chunk documents tool
 │   │   ├── summary_manager.py      # Summary generating tool
@@ -42,10 +42,9 @@ This project is a **Retrieval-Augmented Generation (RAG) Agent** built with:
 │       ├── agent.py        # Agent class
 │       └── settings/
 │               ├── .env.template   # .env template
-│               └── .env    # API keys, settings, and constants
-│
-├── documents/              # Source documents to embed
-├── test.py                 # Example runner script
+│               └── .env            # API keys, settings, and constants
+├── documents/      # Source documents to embed
+├── test.py         # Example runner script
 ├── requirements.txt
 └── README.md
 ```
@@ -64,7 +63,7 @@ Make sure the following packages are included:
 - ```huggingface_hub```
 - ```anthropic```
 
-Will be in the future version, now we use LangChain
+Will be in the future version, now we use LangChain module TavilySearch
 - ```tavily-python```
 
 ### 2. Set Environment Variables
@@ -72,8 +71,8 @@ Will be in the future version, now we use LangChain
 2. Use ```test.py``` as basic example
     ```python
     import asyncio
-    from app import RAGAgent
-    from app import setup_logging
+    from agent import RAGAgent
+    from agent import setup_logging
     
     async def main():
         setup_logging()

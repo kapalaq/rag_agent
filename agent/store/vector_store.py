@@ -9,7 +9,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_core.documents import Document
 
-from app.core.config import RAGConfig
+from agent.core.config import RAGConfig
 
 
 logger = logging.getLogger(__name__)
