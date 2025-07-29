@@ -4,8 +4,8 @@ This schema allows code to effectively pass
 Agent States' info through the LangGraph nodes.
 """
 from dataclasses import dataclass
-from typing import List, Dict, Any, TypedDict, Annotated
-import operator
+from typing import List, Dict, Any, TypedDict
+
 from langchain.schema import Document
 
 
@@ -18,10 +18,11 @@ class AgentState(TypedDict):
     documents_path: str
     success: bool
     retrieved_docs: List[Document]
-    additional_info: Dict[str, Any]
+    additional_info: str
     sources: List[str]
     retries: int
     validation: str
     retrieval_depth: int
     confidence_score: float
     needs_refinement: bool
+

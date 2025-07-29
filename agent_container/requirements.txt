@@ -10,4 +10,6 @@ langgraph~=0.5.2
 pillow~=11.3.0
 langchain-community~=0.3.27
 fastapi~=0.115.14
-chainlit~=2.6.2
+uvicorn~=0.35.0
+sentence-transformers~=5.0.0
+faiss-cpu~=1.11.0

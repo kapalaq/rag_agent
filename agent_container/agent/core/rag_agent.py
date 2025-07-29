@@ -1,7 +1,7 @@
 """Main RAG Agent implementation."""
 
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Tuple
 import logging
 
 from langchain.embeddings import HuggingFaceEmbeddings
@@ -9,9 +9,10 @@ from langchain_anthropic import ChatAnthropic
 from langchain.memory import ConversationBufferMemory
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.documents import Document
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
 
 from agent.core.config import RAGConfig
-from agent.graph.workflow import create_workflow
 from agent.utils.summary_manager import SummaryManager
 from agent.utils.document_processor import DocumentProcessor
 from agent.store.vector_store import VectorStoreManager
@@ -54,7 +55,62 @@ class RAGAgent:
             return_messages=True
         )
 
-        self.graph = create_workflow(self)
+    async def should_retrieve(self, query: str) -> Tuple[bool, Any]:
+        """LLM will decide should it retrieve any docs from vectorstore"""
+        prompt = PromptTemplate.from_template(
+            "You are a RAG (Retrieval Augmented Generation) agent. "
+            "Your work is to answer on user queries in accordance "
+            "with provided documents. However, it is possible that "
+            "user will send some vague and non-specific queries, "
+            "such as 'hello', 'what can you do?'. This doesn't mean "
+            "that you don't **have** enough context to answer. It means "
+            "that you **don't need new** context to answer query. "
+            "Thus, it is crucial separate such question from "
+            "requiring retrieval ones for cost efficiency sake.\n"
+            "You will be provided with query in tag (<query></query>), "
+            "return one word on the following question: "
+            "'Whether should I retrieve documents to answer this query?': Yes or No."
+            "No dot or any character should be added except the word 'Yes' or word 'No'."
+            "No 'but' or any other additional thoughts."
+            "\n\n"
+            "<query>{query}</query>"
+            "\n\n"
+            "Answer:"
+        )
+        chain = LLMChain(llm=self.llm, prompt=prompt)
+
+        answer = chain.invoke({"query": query})
+
+        if "yes" in answer['text'].lower():
+
+            logger.info("Yes, we need to retrieve.")
+
+            return True, ""
+
+        logger.info("No, we don't need to retrieve.")
+
+        prompt = PromptTemplate.from_template(
+            "You are a RAG (Retrieval Augmented Generation) agent. "
+            "Your work is to answer on user queries in accordance "
+            "with provided documents. These documents is retrieved "
+            "from local vectorstore and user can add documents "
+            "in it using or interface's 'Upload' button near query "
+            "entering box. Also, he can check what kind of documents "
+            "LLM can access using button 'Documents' next to 'Upload'. "
+            "Be polite and ask for help if it is needed. "
+            "With this information provided, answer succinctly "
+            "following query:\n\n"
+            "<query>{query}</query>"
+        )
+
+        chain = LLMChain(llm=self.llm, prompt=prompt)
+
+        answer = chain.invoke({"query": query})
+
+        logger.info("Answer generated")
+
+        return False, answer['text']
+
 
     @staticmethod
     def _list_documents(path: str, extensions=None) -> List[str]:
@@ -73,6 +129,7 @@ class RAGAgent:
             return
 
         logger.info(f"Adding {len(path_to_docs)} documents to vector stores")
+        logger.info(path_to_docs)
 
         docs = []
         summaries = []
@@ -157,30 +214,6 @@ class RAGAgent:
         # Store in memory
         self.memory.chat_memory.add_user_message(question)
         self.memory.chat_memory.add_ai_message(answer)
-
-    async def query(self, question: str, documents_path: str) -> Dict[str, Any]:
-        """Query the RAG agent"""
-        logger.info(f"Processing query: {question}")
-
-        initial_state = {
-            "question": question,
-            "documents_path": documents_path,
-            "final_answer": "",
-        }
-
-        # Run the graph
-        result = await self.graph.ainvoke(initial_state)
-
-        self.store_messages(question, result["final_answer"])
-
-        return {
-            "question": question,
-            "answer": result["final_answer"],
-            "sources": result["sources"],
-            "search_queries": result["search_queries"],
-            "confidence_score": result["confidence_score"],
-            "num_retrieved_docs": len(result["retrieved_docs"])
-        }
 
 
 if __name__ == "__main__":

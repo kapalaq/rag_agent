@@ -1,0 +1,16 @@
+version: "rag_agent_deployment:1.0"
+services:
+  rag_agent:
+    build: ./agent_container
+    container_name: rag_agent
+    ports:
+      - '8000:8000'
+    volumes:
+      - ./agent_container:/agent
+  app:
+    build: ./app
+    container_name: app
+    ports:
+      - '8888:8000'
+    volumes:
+      - ./app:/app

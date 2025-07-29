@@ -18,6 +18,7 @@ def create_workflow(agent) -> CompiledStateGraph:
     workflow = StateGraph(AgentState)
 
     # Async wrappers for async nodes
+    async def should_retrieve(state): return await _should_retrieve(state, agent)
     async def analyze_query_node(state): return await _analyze_query_node(state, agent)
     async def init_vectorstores_node(state): return await _init_vectorstore_node(state, agent)
     async def summary_retrieve_node(state): return await _retrieve_summary_node(state, agent)
@@ -29,6 +30,7 @@ def create_workflow(agent) -> CompiledStateGraph:
     async def refine_node(state): return await _refine_node(state, agent)
 
     # Add nodes
+    workflow.add_node("should_retrieve", should_retrieve)
     workflow.add_node("analyze_query", analyze_query_node)
     workflow.add_node("init_vectorstores", init_vectorstores_node)
     workflow.add_node("summary_retrieve", summary_retrieve_node)
@@ -40,10 +42,20 @@ def create_workflow(agent) -> CompiledStateGraph:
     workflow.add_node("refine", refine_node)
 
     # Set entry point
-    workflow.set_entry_point("analyze_query")
+    workflow.set_entry_point("should_retrieve")
 
     # Add edges
+    workflow.add_conditional_edges(
+        "should_retrieve",
+        lambda state: state["success"],
+        {
+            True: "analyze_query",
+            False: END,
+        }
+    )
+
     workflow.add_edge("analyze_query", "init_vectorstores")
+
     workflow.add_conditional_edges(
         "init_vectorstores",
         lambda state: state["success"],
@@ -52,6 +64,7 @@ def create_workflow(agent) -> CompiledStateGraph:
             False: END,
         }
     )
+
     workflow.add_conditional_edges(
         "summary_retrieve",
         lambda state: _check_retrieve(state, agent),
@@ -108,6 +121,18 @@ def create_workflow(agent) -> CompiledStateGraph:
     return workflow.compile()
 
 
+async def _should_retrieve(state: AgentState, agent) -> Dict[str, Any]:
+    """Decide whether a query is generic or have to answered as context specific"""
+    question = state["question"]
+
+    answer = await agent.should_retrieve(question)
+
+    return {
+        "success": answer[0],
+        "final_answer": answer[1],
+    }
+
+
 async def _analyze_query_node(state: AgentState, agent) -> Dict[str, Any]:
     """Analyze the query complexity and determine retrieval strategy"""
     question = state["question"]
@@ -118,7 +143,8 @@ async def _analyze_query_node(state: AgentState, agent) -> Dict[str, Any]:
     logger.info("Query has been analyzed.")
 
     return {
-        "search_queries": analysis["search_queries"]
+        "search_queries": analysis["search_queries"],
+        "additional_info": "Divided query into subqueries"
     }
 
 
@@ -144,7 +170,8 @@ async def _init_vectorstore_node(state: AgentState, agent) -> Dict[str, Any]:
     logger.info("Query has been analyzed.")
 
     return {
-        "success": True
+        "success": True,
+        "additional_info": "Opened our <<Library>>"
     }
 
 
@@ -155,16 +182,6 @@ async def _retrieve_summary_node(state: AgentState, agent) -> Dict[str, Any]:
     retries = state.get("retries", 0)
     max_retries = agent.get_max_retries()
     retries = retries if retries < max_retries else 0
-
-    # Extract context information
-    context = [
-        {
-            "content": docx.page_content[:300] + "...",
-            "metadata": docx.metadata,
-            "relevance_score": getattr(docx, 'relevance_score', 0)
-        }
-        for docx in top_docs
-    ]
 
     # Extract sources information
     sources = {
@@ -177,9 +194,9 @@ async def _retrieve_summary_node(state: AgentState, agent) -> Dict[str, Any]:
 
     return {
         "retrieved_docs": top_docs,
-        "additional_info": context,
         "sources": sources,
-        "retries": retries + 1
+        "retries": retries + 1,
+        "additional_info": f"Found {len(top_docs)} relevant books"
     }
 
 
@@ -206,7 +223,8 @@ async def _retrieve_chunks_node(state: AgentState, agent) -> Dict[str, Any]:
     return {
         "retrieved_docs": top_docs,
         "context": context,
-        "retries": retries + 1
+        "retries": retries + 1,
+        "additional_info": f"Found {len(top_docs)} chunks"
     }
 
 
@@ -225,7 +243,8 @@ async def _retrieve_web_node(state: AgentState, agent) -> Dict[str, Any]:
     return {
         "retrieved_docs": retrieved_docs,
         "retries": retries + 1,
-        "final_answer": "Sorry! There are no documents in my knowledge base to answer this question :("
+        "final_answer": "Sorry! There are no documents in my knowledge base to answer this question :(",
+        "additional_info": "Books didn't help, went online to find something useful"
     }
 
 
@@ -281,7 +300,8 @@ async def _generate_node(state: AgentState, agent) -> Dict[str, Any]:
     return {
         "final_answer": answer,
         "confidence_score": confidence,
-        "retries": retries + 1
+        "retries": retries + 1,
+        "additional_info": "I'm putting together a reply for you bit by bit"
     }
 
 
@@ -321,9 +341,16 @@ async def _validate_node(state: AgentState, agent) -> Dict[str, Any]:
 
     logger.info(f"Validation has been done.")
 
+    success = answer[0] == 'n' or state["retries"] == 2
+    if success:
+        additional_info = "My reply passed validation, let's evaluate its comprehensiveness"
+    else:
+        additional_info = "My reply did not pass validation, retrying..."
+
     return {
         "validation": answer,
-        "success": answer[0] == 'n' or state["retries"] == 2
+        "success": success,
+        "additional_info": additional_info
     }
 
 
@@ -348,9 +375,15 @@ async def _evaluate_node(state: AgentState, agent) -> Dict[str, Any]:
 
     logger.info("Evaluation has been done.")
 
+    if needs_refinement:
+        additional_info = "Oh no! I think I should refine my answer, sorry! :("
+    else:
+        additional_info = "Great, everything is OK :)"
+
     return {
         "needs_refinement": needs_refinement,
-        "retrieval_depth": retrieval_depth + 1
+        "retrieval_depth": retrieval_depth + 1,
+        "additional_info": additional_info
     }
 
 
@@ -381,8 +414,14 @@ async def _refine_node(state: AgentState, agent) -> Dict[str, Any]:
 
     logger.info("Refinement has been done.")
 
+    if len(refined_queries_text) == 0:
+        additional_info = "OK, now everything is great :)"
+    else:
+        additional_info = "I think I gotta retry... sorry! :("
+
     return {
-        "search_queries": refined_queries[:2]  # Limit to 2 refined queries
+        "search_queries": refined_queries[:2],  # Limit to 2 refined queries
+        "additional_info": additional_info
     }
 
 

@@ -71,8 +71,8 @@ Will be in the future version, now we use LangChain module TavilySearch
 2. Use ```test.py``` as basic example
     ```python
     import asyncio
-    from agent import RAGAgent
-    from agent import setup_logging
+    from rag_agent.agent import RAGAgent
+    from rag_agent.agent import setup_logging
     
     async def main():
         setup_logging()

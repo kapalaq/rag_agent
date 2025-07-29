@@ -1,0 +1,18 @@
+# Virtual Environment
+.venv/
+
+# Python Cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.zip
+*.tar.gz
+*.egg-info/
+
+# Cache
+.cache/
+
+# Checkpoints
+checkpoints/
