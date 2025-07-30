@@ -1,3 +1,5 @@
+from nltk.corpus.reader import documentsfrom agent_container.agent.core.rag_agent import RAGAgentfrom agent_container.agent.graph.workflow import create_workflow
+
 # 🧠 RAG Agent using LangGraph & LangChain
 
 This project is a **Retrieval-Augmented Generation (RAG) Agent** built with:
@@ -14,9 +16,23 @@ This project is a **Retrieval-Augmented Generation (RAG) Agent** built with:
 ## ✨ Features
 
 - **Agent-centric architecture**: all logic encapsulated in a single `Agent` class
-- Simple querying interface:  
+Note: for modulation purposes, main 'run' function has be depreciated.
+- Basic interface:  
     ```python
-    agent.query("What is attention?")
+    # agent.query("What is attention?")
+    agent = RAGAgent()
+    graph = create_workflow(agent)
+    
+    # Init vectorstore
+    agent.init_vectorstores(documents_path)
+    
+    # All initial state params can be taken from 
+    # agent_container/agent/core/state.py
+    # Note: question and documents_path are required
+    initial_state = {...}
+  
+    # Run graph
+    ans = graph.invoke(initial_state)
     ```
 - Recursive document retrieval via **LangGraph** conditional edges
 - Seamless integration with **Tavily Search API** for real-time information
