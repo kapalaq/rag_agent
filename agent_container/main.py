@@ -4,7 +4,7 @@ import json
 import logging
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 from agent.core.rag_agent import RAGAgent
 from agent.graph.workflow import create_workflow
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 agent = RAGAgent()
 
 class QueryRequest(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    """Request query fields"""
     question: str
     documents_path: str
 

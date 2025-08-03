@@ -3,8 +3,9 @@
 This schema allows code to effectively pass
 Agent States' info through the LangGraph nodes.
 """
+
 from dataclasses import dataclass
-from typing import List, Dict, Any, TypedDict
+from typing import List, TypedDict
 
 from langchain.schema import Document
 

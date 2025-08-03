@@ -20,7 +20,6 @@ def create_workflow(agent) -> CompiledStateGraph:
     # Async wrappers for async nodes
     async def should_retrieve(state): return await _should_retrieve(state, agent)
     async def analyze_query_node(state): return await _analyze_query_node(state, agent)
-    async def init_vectorstores_node(state): return await _init_vectorstore_node(state, agent)
     async def summary_retrieve_node(state): return await _retrieve_summary_node(state, agent)
     async def chunk_retrieve_node(state): return await _retrieve_chunks_node(state, agent)
     async def web_retrieve_node(state): return await _retrieve_web_node(state, agent)
@@ -32,7 +31,6 @@ def create_workflow(agent) -> CompiledStateGraph:
     # Add nodes
     workflow.add_node("should_retrieve", should_retrieve)
     workflow.add_node("analyze_query", analyze_query_node)
-    workflow.add_node("init_vectorstores", init_vectorstores_node)
     workflow.add_node("summary_retrieve", summary_retrieve_node)
     workflow.add_node("chunk_retrieve", chunk_retrieve_node)
     workflow.add_node("web_retrieve", web_retrieve_node)
@@ -54,16 +52,7 @@ def create_workflow(agent) -> CompiledStateGraph:
         }
     )
 
-    workflow.add_edge("analyze_query", "init_vectorstores")
-
-    workflow.add_conditional_edges(
-        "init_vectorstores",
-        lambda state: state["success"],
-        {
-            True: "summary_retrieve",
-            False: END,
-        }
-    )
+    workflow.add_edge("analyze_query", "summary_retrieve")
 
     workflow.add_conditional_edges(
         "summary_retrieve",
@@ -145,33 +134,6 @@ async def _analyze_query_node(state: AgentState, agent) -> Dict[str, Any]:
     return {
         "search_queries": analysis["search_queries"],
         "additional_info": "Divided query into subqueries"
-    }
-
-
-async def _init_vectorstore_node(state: AgentState, agent) -> Dict[str, Any]:
-    """Initialize vector store and add documents in it. Or just load."""
-    try:
-        documents_path = state["documents_path"]
-        await agent.init_vectorstores(documents_path)
-
-    except KeyError:
-        return {
-            "success": False,
-            "final_answer": "Sorry! But you or our engineers forget to pass docs path :("
-        }
-
-    except Exception as e:
-        logger.error("There is a problem in vector store initialization:", e)
-        return {
-            "success": False,
-            "final_answer": "Sorry! There is a problem in vector store initialization. Please try again later."
-        }
-
-    logger.info("Query has been analyzed.")
-
-    return {
-        "success": True,
-        "additional_info": "Opened our <<Library>>"
     }
 
 

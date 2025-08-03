@@ -1,8 +1,17 @@
-# env
+# Environment fiels
 *.env
-app/.env
+**/.env
 
-log
+# Virtual Environment
+**/.venv
+
+# Log files
+**/log
 **/*.log
 
+# Hidden files
 __*.py
+
+# Chainlit files
+**/.chainlit
+**/.files

@@ -1,7 +1,7 @@
 """Main RAG Agent implementation."""
 
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import List, Any, Tuple
 import logging
 
 from langchain.embeddings import HuggingFaceEmbeddings
@@ -27,6 +27,8 @@ class RAGAgent:
     def __init__(self):
         self.config = RAGConfig()
 
+        self.top_k = self.config.top_k_retrieval
+
         self.llm = ChatAnthropic(
             anthropic_api_key=self.config.anthropic_api_key.get_secret_value(),
             model_name=self.config.llm_model.get_secret_value(),
@@ -35,7 +37,7 @@ class RAGAgent:
 
         self.web = TavilySearchResults(
             tavily_api_key=self.config.tavily_api_key.get_secret_value(),
-            k=self.config.top_k_retrieval
+            k=self.top_k
         )
 
         self.embeddings = HuggingFaceEmbeddings(
@@ -167,7 +169,7 @@ class RAGAgent:
         top_docs = []
         for query in queries:
             try:
-                docs = self.summary_vectorstore.retrieve(query, self.config.top_k_retrieval)
+                docs = self.summary_vectorstore.retrieve(query, self.top_k)
                 top_docs.extend(docs)
             except Exception as e:
                 logger.error("There is a problem with retrieving summary:", e)
@@ -178,7 +180,7 @@ class RAGAgent:
         """Retrieve chunks of documents from FAISS"""
         top_docs = []
         for query in queries:
-            docs = self.chunks_vectorstore.retrieve(query, self.config.top_k_retrieval * len(sources))
+            docs = self.chunks_vectorstore.retrieve(query, self.top_k * len(sources))
             filtered_chunks = [
                 chunk for chunk in docs
                 if chunk.metadata.get("source") in sources

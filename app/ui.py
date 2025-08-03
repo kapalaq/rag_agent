@@ -1,5 +1,6 @@
 """Chainlit UI endpoint that will directly send requests to the RAG Agent"""
 
+
 import json
 import os
 import httpx
